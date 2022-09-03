@@ -1,6 +1,6 @@
-package com.pequla.forgelink;
+package com.pequla.forgelink.dto;
 
-public class PlayerData {
+public class DataModel {
 
     private String id;
     private String name;
@@ -17,7 +17,7 @@ public class PlayerData {
                 '}';
     }
 
-    public PlayerData() {
+    public DataModel() {
     }
 
     public String getId() {

@@ -1,77 +1,76 @@
 package com.pequla.forgelink;
 
-import com.google.gson.Gson;
 import com.mojang.logging.LogUtils;
+import com.pequla.forgelink.dto.DataModel;
+import com.pequla.forgelink.utils.WebClient;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.players.PlayerList;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.event.server.ServerStartingEvent;
-import net.minecraftforge.event.server.ServerStoppingEvent;
 import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.slf4j.Logger;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
 public class LoginEventHandler {
 
-    public static final String GUILD_ID = "264801645370671114";
     private static final Logger LOGGER = LogUtils.getLogger();
-    private final Map<UUID, PlayerData> playerData = new HashMap<>();
+    private final Map<UUID, DataModel> playerData = new HashMap<>();
 
     @SubscribeEvent
-    public void onServerStopping(ServerStoppingEvent event) {
-        // Do something when the server starts
-        LOGGER.info("Server stopped");
-    }
-
-    @SubscribeEvent
-    public void onServerStarting(ServerStartingEvent event) {
-        // Do something when the server starts
-        LOGGER.info("Starting server");
-    }
-
-    @SubscribeEvent
-    public void login(PlayerEvent.PlayerLoggedInEvent event) {
+    public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         Player player = event.getPlayer();
-        String uuid = player.getStringUUID();
-
         try {
-            URL url = new URL("https://link.samifying.com/apii/user/" + GUILD_ID + "/" + uuid);
-            HttpURLConnection con = (HttpURLConnection) url.openConnection();
-            con.setRequestMethod("GET");
+            WebClient client = WebClient.getInstance();
+            DataModel model = client.getPlayerData(player.getUUID());
+            client.sendWebhookMessage(model, playerCountFormatter(player, true));
 
-            int status = con.getResponseCode();
-            if (status != 200) {
-                rejectPlayerLogin(player, event);
-                return;
-            }
-
-            BufferedReader in = new BufferedReader(new InputStreamReader(con.getInputStream()));
-            Gson gson = new Gson();
-            PlayerData data = gson.fromJson(in.readLine(), PlayerData.class);
-            playerData.put(player.getUUID(), data);
-            System.out.println(data);
+            // Caching data
+            playerData.put(player.getUUID(), model);
+            LOGGER.info(model.toString());
         } catch (Exception e) {
-            rejectPlayerLogin(player, event);
+            LOGGER.error(player.getName() + " login was rejected: " + e.getMessage(), e);
+            event.setResult(Event.Result.DENY);
+            event.setCanceled(true);
         }
     }
 
     @SubscribeEvent
-    public void logout(PlayerEvent.PlayerLoggedOutEvent event) {
-        UUID uuid = event.getPlayer().getUUID();
-        playerData.remove(uuid);
+    public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
+        Player player = event.getPlayer();
+        DataModel model = playerData.get(player.getUUID());
+        WebClient.getInstance().sendWebhookMessage(model, playerCountFormatter(player, false));
+        playerData.remove(player.getUUID());
     }
 
-    private void rejectPlayerLogin(Player player, PlayerEvent.PlayerLoggedInEvent event) {
-        System.out.println(player.getName() + " login was rejected");
-        event.setResult(Event.Result.DENY);
-        event.setCanceled(true);
+    @SubscribeEvent
+    public void onLivingDeath(LivingDeathEvent event) {
+        Entity entity = event.getEntity();
+        if (entity instanceof Player player) {
+            DataModel model = playerData.get(player.getUUID());
+            WebClient.getInstance().sendWebhookMessage(model, "**"+player.getName().getString() + "** died");
+        }
+    }
+
+    private String playerCountFormatter(Player player, boolean join) {
+        String name = player.getName().getString();
+        String base = "**" + name + "** " + ((join) ? "joined" : "left") + " the game";
+        MinecraftServer server = player.getServer();
+        if (server != null) {
+            PlayerList list = server.getPlayerList();
+            int count = list.getPlayerCount();
+            if (!join) count = count - 1;
+            if (count == 0) {
+                return base + ", server is **empty**";
+            }
+            return base + ", **" + count + "** out of **" + list.getMaxPlayers() + "** online";
+        }
+        return base;
     }
 
 }
