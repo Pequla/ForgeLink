@@ -61,15 +61,21 @@ public class WebClient {
         if (webhookUrl == null) return;
 
         // Send webhook
-        HttpRequest request = HttpRequest.newBuilder()
-                .uri(URI.create(webhookUrl))
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(message)))
-                .build();
-        client.sendAsync(request, HttpResponse.BodyHandlers.ofString())
-                .thenApply(HttpResponse::body)
-                .thenAccept(rsp -> {
-                });
+        new Thread(()->{
+            try {
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(webhookUrl))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(message)))
+                        .build();
+                HttpResponse<String> rsp = client.send(request, HttpResponse.BodyHandlers.ofString());
+                if (rsp.statusCode() != 204) {
+                    throw new RuntimeException("Discord returned " + rsp.statusCode());
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
     }
 
     public void sendWebhookMessage(DataModel model, String content) {
