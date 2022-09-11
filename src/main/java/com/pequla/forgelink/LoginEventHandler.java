@@ -3,6 +3,7 @@ package com.pequla.forgelink;
 import com.mojang.logging.LogUtils;
 import com.pequla.forgelink.dto.DataModel;
 import com.pequla.forgelink.utils.WebClient;
+import lombok.RequiredArgsConstructor;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.entity.Entity;
@@ -17,10 +18,16 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+@RequiredArgsConstructor
 public class LoginEventHandler {
 
     private static final Logger LOGGER = LogUtils.getLogger();
     private final Map<UUID, DataModel> playerData = new HashMap<>();
+    private final ForgeLink mod;
+
+    // TODO: migrate class from webhooks to discord bot
+    // Create util method for sending player join/leave info
+    // Update discord bot activity based on online players
 
     @SubscribeEvent
     public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
@@ -28,11 +35,12 @@ public class LoginEventHandler {
         try {
             WebClient client = WebClient.getInstance();
             DataModel model = client.getPlayerData(player.getUUID());
-            client.sendWebhookMessage(model, playerCountFormatter(player, true));
+            LOGGER.info("Dispatching join message");
+            mod.sendSystemEmbed(playerCountFormatter(player, true));
 
             // Caching data
             playerData.put(player.getUUID(), model);
-            LOGGER.info(model.toString());
+            LOGGER.info(player.getName() + " joined as " + model.getNickname() + "(ID: " + model.getId() + ")");
         } catch (Exception e) {
             LOGGER.error(player.getName() + " login was rejected: " + e.getMessage(), e);
             event.setResult(Event.Result.DENY);
@@ -44,7 +52,8 @@ public class LoginEventHandler {
     public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         Player player = event.getPlayer();
         DataModel model = playerData.get(player.getUUID());
-        WebClient.getInstance().sendWebhookMessage(model, playerCountFormatter(player, false));
+        LOGGER.info("Dispatching leave message");
+        mod.sendSystemEmbed(playerCountFormatter(player, false));
         playerData.remove(player.getUUID());
     }
 
@@ -53,7 +62,7 @@ public class LoginEventHandler {
         Entity entity = event.getEntity();
         if (entity instanceof Player player) {
             DataModel model = playerData.get(player.getUUID());
-            WebClient.getInstance().sendWebhookMessage(model, "**"+player.getName().getString() + "** died");
+            mod.sendSystemEmbed("**" + player.getName().getString() + "** died");
         }
     }
 
