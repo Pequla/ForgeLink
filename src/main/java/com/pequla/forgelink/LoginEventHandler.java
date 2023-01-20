@@ -4,7 +4,11 @@ import com.mojang.logging.LogUtils;
 import com.pequla.forgelink.dto.DataModel;
 import com.pequla.forgelink.utils.WebClient;
 import lombok.RequiredArgsConstructor;
+import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.FormattedText;
+import net.minecraft.network.chat.Style;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
@@ -16,6 +20,7 @@ import org.slf4j.Logger;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -32,6 +37,8 @@ public class LoginEventHandler {
     @SubscribeEvent
     public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         Player player = event.getPlayer();
+        ServerPlayer sp = (ServerPlayer) event.getPlayer();
+        sp.connection.disconnect();
         try {
             WebClient client = WebClient.getInstance();
             DataModel model = client.getPlayerData(player.getUUID());
