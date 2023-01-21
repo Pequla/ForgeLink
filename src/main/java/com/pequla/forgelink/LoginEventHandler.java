@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.FormattedText;
 import net.minecraft.network.chat.Style;
+import net.minecraft.network.chat.TextComponent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.players.PlayerList;
@@ -37,8 +38,6 @@ public class LoginEventHandler {
     @SubscribeEvent
     public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         Player player = event.getPlayer();
-        ServerPlayer sp = (ServerPlayer) event.getPlayer();
-        sp.connection.disconnect();
         try {
             WebClient client = WebClient.getInstance();
             DataModel model = client.getPlayerData(player.getUUID());
@@ -50,8 +49,8 @@ public class LoginEventHandler {
             LOGGER.info(player.getName() + " joined as " + model.getNickname() + "(ID: " + model.getId() + ")");
         } catch (Exception e) {
             LOGGER.error(player.getName() + " login was rejected: " + e.getMessage(), e);
-            event.setResult(Event.Result.DENY);
-            event.setCanceled(true);
+            ServerPlayer sp = (ServerPlayer) event.getPlayer();
+            sp.connection.disconnect(new TextComponent("You are not whitelisted"));
         }
     }
 
