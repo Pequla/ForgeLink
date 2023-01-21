@@ -4,9 +4,6 @@ import com.mojang.logging.LogUtils;
 import com.pequla.forgelink.dto.DataModel;
 import com.pequla.forgelink.utils.WebClient;
 import lombok.RequiredArgsConstructor;
-import net.minecraft.network.chat.Component;
-import net.minecraft.network.chat.FormattedText;
-import net.minecraft.network.chat.Style;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -15,13 +12,11 @@ import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
-import net.minecraftforge.eventbus.api.Event;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import org.slf4j.Logger;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -31,21 +26,14 @@ public class LoginEventHandler {
     private final Map<UUID, DataModel> playerData = new HashMap<>();
     private final ForgeLink mod;
 
-    // TODO: migrate class from webhooks to discord bot
-    // Create util method for sending player join/leave info
-    // Update discord bot activity based on online players
-
     @SubscribeEvent
     public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         Player player = event.getPlayer();
         try {
             WebClient client = WebClient.getInstance();
             DataModel model = client.getPlayerData(player.getUUID());
-            LOGGER.info("Dispatching join message");
-            mod.sendSystemEmbed(playerCountFormatter(player, true));
-
-            // Caching data
             playerData.put(player.getUUID(), model);
+            mod.sendMessage(playerCountFormatter(player, true));
             LOGGER.info(player.getName() + " joined as " + model.getNickname() + "(ID: " + model.getId() + ")");
         } catch (Exception e) {
             LOGGER.error(player.getName() + " login was rejected: " + e.getMessage(), e);
@@ -57,9 +45,8 @@ public class LoginEventHandler {
     @SubscribeEvent
     public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         Player player = event.getPlayer();
-        DataModel model = playerData.get(player.getUUID());
         LOGGER.info("Dispatching leave message");
-        mod.sendSystemEmbed(playerCountFormatter(player, false));
+        mod.sendMessage(playerCountFormatter(player, false));
         playerData.remove(player.getUUID());
     }
 
@@ -67,14 +54,12 @@ public class LoginEventHandler {
     public void onLivingDeath(LivingDeathEvent event) {
         Entity entity = event.getEntity();
         if (entity instanceof Player player) {
-            DataModel model = playerData.get(player.getUUID());
-            mod.sendSystemEmbed("**" + player.getName().getString() + "** died");
+            mod.sendMessage(generatePlayerName(player) + "died");
         }
     }
 
     private String playerCountFormatter(Player player, boolean join) {
-        String name = player.getName().getString();
-        String base = "**" + name + "** " + ((join) ? "joined" : "left") + " the game";
+        String base = generatePlayerName(player) + ((join) ? "joined" : "left") + " the game";
         MinecraftServer server = player.getServer();
         if (server != null) {
             PlayerList list = server.getPlayerList();
@@ -88,4 +73,9 @@ public class LoginEventHandler {
         return base;
     }
 
+    private String generatePlayerName(Player player) {
+        String name = player.getName().getString();
+        String tag = playerData.get(player.getUUID()).getName();
+        return "**" + name + " (" + tag + ")** ";
+    }
 }

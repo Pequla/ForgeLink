@@ -3,6 +3,7 @@ package com.pequla.forgelink.utils;
 import com.google.gson.Gson;
 import com.pequla.forgelink.dto.DataModel;
 import com.pequla.forgelink.dto.ErrorModel;
+import com.pequla.forgelink.dto.WebhookModel;
 
 import java.io.IOException;
 import java.net.URI;
@@ -52,6 +53,18 @@ public class WebClient {
             throw new RuntimeException(gson.fromJson(rsp.body(), ErrorModel.class).getMessage());
         }
         throw new RuntimeException("Response code " + code);
+    }
+
+    public void sendWebhook(WebhookModel model) {
+        //82.208.22.205:3300
+        String webhook = ConfigService.getInstance().getWebhookUrl();
+        HttpRequest req = HttpRequest.newBuilder()
+                .uri(URI.create("http://82.208.22.205:3300/api/webhook"))
+                .header("Content-Type", "application/json")
+                .header("webhook", webhook)
+                .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(model)))
+                .build();
+        client.sendAsync(req, HttpResponse.BodyHandlers.ofString());
     }
 
     public String cleanUUID(UUID uuid) {
