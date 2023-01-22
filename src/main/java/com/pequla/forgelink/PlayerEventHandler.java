@@ -2,8 +2,8 @@ package com.pequla.forgelink;
 
 import com.mojang.logging.LogUtils;
 import com.pequla.forgelink.dto.DataModel;
-import com.pequla.forgelink.utils.WebClient;
-import lombok.RequiredArgsConstructor;
+import com.pequla.forgelink.dto.WebhookModel;
+import com.pequla.forgelink.utils.WebService;
 import net.minecraft.network.chat.TextComponent;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerPlayer;
@@ -19,21 +19,19 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-@RequiredArgsConstructor
-public class LoginEventHandler {
+public class PlayerEventHandler {
 
     private static final Logger LOGGER = LogUtils.getLogger();
     private final Map<UUID, DataModel> playerData = new HashMap<>();
-    private final ForgeLink mod;
 
     @SubscribeEvent
     public void onPlayerLoggedIn(PlayerEvent.PlayerLoggedInEvent event) {
         Player player = event.getPlayer();
         try {
-            WebClient client = WebClient.getInstance();
+            WebService client = WebService.getInstance();
             DataModel model = client.getPlayerData(player.getUUID());
             playerData.put(player.getUUID(), model);
-            mod.sendMessage(playerCountFormatter(player, true));
+            sendPlayerWebhook(player, playerCountFormatter(player, true));
             LOGGER.info(player.getName() + " joined as " + model.getNickname() + "(ID: " + model.getId() + ")");
         } catch (Exception e) {
             LOGGER.error(player.getName() + " login was rejected: " + e.getMessage(), e);
@@ -46,7 +44,7 @@ public class LoginEventHandler {
     public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         Player player = event.getPlayer();
         LOGGER.info("Dispatching leave message");
-        mod.sendMessage(playerCountFormatter(player, false));
+        sendPlayerWebhook(player, playerCountFormatter(player, false));
         playerData.remove(player.getUUID());
     }
 
@@ -54,12 +52,25 @@ public class LoginEventHandler {
     public void onLivingDeath(LivingDeathEvent event) {
         Entity entity = event.getEntity();
         if (entity instanceof Player player) {
-            mod.sendMessage(generatePlayerName(player) + "died");
+            LOGGER.info("Dispatching death message");
+            sendPlayerWebhook(player, "died");
         }
     }
 
+    private void sendPlayerWebhook(Player player, String content) {
+        String name = player.getName().getString();
+        UUID uuid = player.getUUID();
+        String tag = playerData.get(uuid).getName();
+        WebService service = WebService.getInstance();
+        service.sendWebhook(WebhookModel.builder()
+                .avatar_url("https://visage.surgeplay.com/face/" + service.cleanUUID(uuid))
+                .username(name)
+                .content("**" + name + " (" + tag + ")** " + content)
+                .build());
+    }
+
     private String playerCountFormatter(Player player, boolean join) {
-        String base = generatePlayerName(player) + ((join) ? "joined" : "left") + " the game";
+        String base = ((join) ? "joined" : "left") + " the game";
         MinecraftServer server = player.getServer();
         if (server != null) {
             PlayerList list = server.getPlayerList();
@@ -71,11 +82,5 @@ public class LoginEventHandler {
             return base + ", **" + count + "** out of **" + list.getMaxPlayers() + "** online";
         }
         return base;
-    }
-
-    private String generatePlayerName(Player player) {
-        String name = player.getName().getString();
-        String tag = playerData.get(player.getUUID()).getName();
-        return "**" + name + " (" + tag + ")** ";
     }
 }

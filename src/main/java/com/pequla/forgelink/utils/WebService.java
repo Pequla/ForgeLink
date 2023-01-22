@@ -13,13 +13,13 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.UUID;
 
-public class WebClient {
+public class WebService {
 
-    private static WebClient instance;
+    private static WebService instance;
     private final HttpClient client;
     private final Gson gson;
 
-    public WebClient() {
+    public WebService() {
         this.client = HttpClient.newBuilder()
                 .version(HttpClient.Version.HTTP_2)
                 .followRedirects(HttpClient.Redirect.NORMAL)
@@ -28,8 +28,8 @@ public class WebClient {
         this.gson = new Gson();
     }
 
-    public static WebClient getInstance() {
-        if (instance == null) instance = new WebClient();
+    public static WebService getInstance() {
+        if (instance == null) instance = new WebService();
         return instance;
     }
 
