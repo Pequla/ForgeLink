@@ -1,6 +1,5 @@
 package com.pequla.forgelink;
 
-import com.mojang.logging.LogUtils;
 import com.pequla.forgelink.dto.DataModel;
 import com.pequla.forgelink.dto.WebhookModel;
 import com.pequla.forgelink.utils.WebService;
@@ -11,9 +10,11 @@ import net.minecraft.server.players.PlayerList;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
+import net.minecraftforge.event.entity.player.AdvancementEvent;
 import net.minecraftforge.event.entity.player.PlayerEvent;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
-import org.slf4j.Logger;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -21,7 +22,7 @@ import java.util.UUID;
 
 public class PlayerEventHandler {
 
-    private static final Logger LOGGER = LogUtils.getLogger();
+    private static final Logger LOGGER = LogManager.getLogger(ForgeLink.class.getSimpleName());
     private final Map<UUID, DataModel> playerData = new HashMap<>();
 
     @SubscribeEvent
@@ -32,7 +33,7 @@ public class PlayerEventHandler {
             DataModel model = client.getPlayerData(player.getUUID());
             playerData.put(player.getUUID(), model);
             sendPlayerWebhook(player, playerCountFormatter(player, true));
-            LOGGER.info(player.getName() + " joined as " + model.getNickname() + "(ID: " + model.getId() + ")");
+            LOGGER.info(player.getName() + " joined as " + model.getNickname() + " (ID: " + model.getId() + ")");
         } catch (Exception e) {
             LOGGER.error(player.getName() + " login was rejected: " + e.getMessage(), e);
             ServerPlayer sp = (ServerPlayer) event.getPlayer();
@@ -43,17 +44,39 @@ public class PlayerEventHandler {
     @SubscribeEvent
     public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event) {
         Player player = event.getPlayer();
-        LOGGER.info("Dispatching leave message");
-        sendPlayerWebhook(player, playerCountFormatter(player, false));
-        playerData.remove(player.getUUID());
+        if (playerData.containsKey(player.getUUID())) {
+            LOGGER.info("Dispatching leave message");
+            sendPlayerWebhook(player, playerCountFormatter(player, false));
+            playerData.remove(player.getUUID());
+        }
     }
 
     @SubscribeEvent
     public void onLivingDeath(LivingDeathEvent event) {
         Entity entity = event.getEntity();
         if (entity instanceof Player player) {
-            LOGGER.info("Dispatching death message");
-            sendPlayerWebhook(player, "died");
+            if (playerData.containsKey(player.getUUID())) {
+                LOGGER.info("Dispatching death message");
+                String msg = event.getSource().getLocalizedDeathMessage(event.getEntityLiving()).getString();;
+                sendPlayerWebhook(player, msg.replace(player.getName().getString() + " ", ""));
+            }
+        }
+    }
+
+    @SubscribeEvent
+    public void onAdvancement(AdvancementEvent event) {
+        Player player = event.getPlayer();
+        if (playerData.containsKey(player.getUUID())) {
+            MinecraftServer server = event.getEntity().getServer();
+            if (server != null && server.getPlayerList().getPlayerAdvancements((ServerPlayer) event.getEntity()).getOrStartProgress(event.getAdvancement()).isDone()) {
+                if (event.getAdvancement() != null && event.getAdvancement().getDisplay() != null && event.getAdvancement().getDisplay().shouldAnnounceChat()) {
+                    String title = event.getAdvancement().getDisplay().getTitle().getString();
+                    String desc = event.getAdvancement().getDisplay().getDescription().getString();
+                    LOGGER.info("Dispatching advancement message");
+                    sendPlayerWebhook(player, "just made the advancement **" + title + "**"
+                            + System.lineSeparator() + "*" + desc + "*");
+                }
+            }
         }
     }
 
