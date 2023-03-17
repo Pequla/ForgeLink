@@ -1,13 +1,13 @@
 # ForgeLink
-Advanced Discord based whitelisting server side mod for Forge 1.18
+Advanced Discord based whitelisting server side mod for Forge 1.19.2
 
-> Made for All the Mods 7 and All the Mods 7 - To the sky modpacks
+> Made for All the Mods 8 modpack
 
 ## Requirements
 
 In order for this mod to work you need a Discord server where you have invited the [SuperLink Discord Bot](https://discord.com/api/oauth2/authorize?client_id=770681237622095913&permissions=8&scope=bot%20applications.commands)
 
-Your server needs to run `forge-1.18.2-40.1.74` or newer
+Your server needs to run `forge-1.19.2-43.2.6` or newer
 
 ## Installation
 
