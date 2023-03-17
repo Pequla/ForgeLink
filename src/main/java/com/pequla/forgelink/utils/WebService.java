@@ -33,7 +33,7 @@ public class WebService {
         return instance;
     }
 
-    public DataModel getPlayerData(UUID uuid) throws IOException, InterruptedException {
+    public DataModel getPlayerData(String uuid) throws IOException, InterruptedException {
         String guildId = ConfigService.getInstance().getGuildId();
         String url = "https://link.samifying.com/api/user/" + guildId + "/" + cleanUUID(uuid);
         HttpRequest req = HttpRequest.newBuilder()
@@ -59,15 +59,14 @@ public class WebService {
         //82.208.22.205:3300
         String webhook = ConfigService.getInstance().getWebhookUrl();
         HttpRequest req = HttpRequest.newBuilder()
-                .uri(URI.create("http://82.208.22.205:3300/api/webhook"))
+                .uri(URI.create(webhook))
                 .header("Content-Type", "application/json")
-                .header("webhook", webhook)
                 .POST(HttpRequest.BodyPublishers.ofString(gson.toJson(model)))
                 .build();
         client.sendAsync(req, HttpResponse.BodyHandlers.ofString());
     }
 
-    public String cleanUUID(UUID uuid) {
-        return uuid.toString().replace("-", "");
+    public String cleanUUID(String uuid) {
+        return uuid.replace("-", "");
     }
 }
